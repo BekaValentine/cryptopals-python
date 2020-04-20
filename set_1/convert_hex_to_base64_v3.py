@@ -120,7 +120,7 @@ test_b64 = b'SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t'
 # Next we'll make sure that the reference implementation in the `base64` library
 # gives us the expected result:
 def test_cryptopals_challenge1_reference_implementation():
-    assert base64.encodebytes(test_hex_string).strip() == test_b64
+    assert base64.b64encode(test_hex_string) == test_b64
 
 
 # And finally we'll check that the custom implementation of the hex-to-base64
@@ -141,5 +141,5 @@ def generate_random_hex():
 def test_100_random_hex_strings():
     for _ in range(100000):
         a_random_hex_string = generate_random_hex()
-        assert base64.encodebytes(a_random_hex_string).strip() == \
+        assert base64.b64encode(a_random_hex_string) == \
             hex_to_base64(a_random_hex_string)
