@@ -13,28 +13,75 @@ import pytest
 import base64
 
 
-def byte_to_bitstring(some_byte_as_an_int):
+# ##############################################################################
+#
+# Main Implementation
+#
+# ##############################################################################
+
+# The overall encoding of bytes to base64 in this implementation depends on the
+# following facts:
+#
+# 1. A byte is 8 bits, while each b64 character is 6 bits, so the least common
+#    multiple is 24 bits, or 3 bytes.
+#
+# 2. Every number of bytes can be seen as either a) 3n bytes for some n, b)
+#    3n + 1 bytes for some n, or c) 3n + 2 bytes for some n.
+#
+# We can thus convert the whole bytestring into base 64 by converting each
+# triple octet. If there is a remaining 2 or 1 byte left over, we can then pad.
+
+# Thus, to convert hex to base 64, we simply convert each triple octet in the
+# input bytes:
+def hex_to_base64(some_bytes):
     """
-    Convert a byte to a literal string of 1s and 0s.
+    Convert hex to base64.
     """
 
-    bitstring = ''
-    for i in range(8):
-        if (1 << (7 - i)) & some_byte_as_an_int == 0:
-            bitstring += '0'
-        else:
-            bitstring += '1'
-    return bitstring
+    return bytes(''.join([encode_triple_octet(some_bytes[i:i + 3])
+                          for i in range(0, len(some_bytes), 3)]), encoding='ascii')
 
 
-def bytes_to_bitstring(some_bytes):
+# To convert any given triple octet, we just convert its respective sextet parts
+# accounting for the need to pad when there are fewer than 3 bytes.
+def encode_triple_octet(some_bytes):
     """
-    Convert a bytestring to a literal string of 1s and 0s.
+    Encode up to three octets, accounting for padding.
     """
 
-    return ''.join([byte_to_bitstring(b) for b in some_bytes])
+    # This particular implementation uses stringy representation of bit strings
+    # and thus for sextets. We'll clean this up in a subsequent implementation.
+    bitstrings = bytes_to_6bits_list(some_bytes)
+
+    if len(some_bytes) == 3:
+        # Three bytes means four sextets and we're good to encode them all.
+        return encoding_for_sextet(bitstrings[0]) +\
+            encoding_for_sextet(bitstrings[1]) +\
+            encoding_for_sextet(bitstrings[2]) +\
+            encoding_for_sextet(bitstrings[3])
+
+    elif len(some_bytes) == 2:
+        # Two bytes means we have only 16 bits, so we need to pad to get a
+        # multiple of 6. By convention, we pad with 0's up to 18, and then
+        # encode. After the encoded sextets, we append a single '=' to indicate
+        # that we've padded with '00'.
+        return encoding_for_sextet(bitstrings[0]) +\
+            encoding_for_sextet(bitstrings[1]) +\
+            encoding_for_sextet(bitstrings[2] + '00') +\
+            '='
+
+    elif len(some_bytes) == 1:
+        # One byte means we have only 8 bits, and need to pad to get a multiple
+        # of 6. By convention, we pad with 0's up to 12, and then encode. After
+        # the encoded sextents, we append a double '=' to indicate that we've
+        # padded with '0000'.
+        return encoding_for_sextet(bitstrings[0]) +\
+            encoding_for_sextet(bitstrings[1] + '0000') +\
+            '=='
 
 
+# We need a way to convert some bytes to lists of sextents, so we just convert
+# the bytes to a bit string and chop it up.
 def bytes_to_6bits_list(some_bytes):
     """
     Convert a bytestring to a list of 6 bit long bit strings.
@@ -49,14 +96,43 @@ def bytes_to_6bits_list(some_bytes):
     return bitstrings
 
 
-def bits_to_int(bits):
+# Converting some bytes to a bitstring is easy: we just convert each byte and
+# concatenate.
+def bytes_to_bitstring(some_bytes):
     """
-    Convert a bitstring to an integer.
+    Convert a bytestring to a literal string of 1s and 0s.
     """
 
-    return sum([0 if b == '0' else (1 << i) for i, b in enumerate(reversed(bits))])
+    return ''.join([byte_to_bitstring(b) for b in some_bytes])
 
 
+# Converting some byte to a bit string is each, we just append a '1' or '0' as
+# we move through each bit.
+def byte_to_bitstring(some_byte_as_an_int):
+    """
+    Convert a byte to a literal string of 1s and 0s.
+    """
+
+    bitstring = ''
+    for i in range(8):
+        if (1 << (7 - i)) & some_byte_as_an_int == 0:
+            bitstring += '0'
+        else:
+            bitstring += '1'
+    return bitstring
+
+
+# Encoding a sextet is easy enough. We'll take advantage of the fact that the
+# encoding for base 64 isn't random, but instead, that the sextets increment as
+# the ASCII code for the encoding increments. For instance, the sextet '000000'
+# is encoded as 'A' which is ASCII 65, '000001' is encoded as 'B' i.e. ASCII 66,
+# and so on. We can thus just figure out which range of ASCII we need to encode
+# into based on the numeric value of the sextet, and convert straight from the
+# ASCII code.
+#
+# The use of a convertion from bitstrings to ints is unfortunate, because it
+# adds some inefficiencies, but it's a good first representation due to its
+# straightforwardness.
 def encoding_for_sextet(bits):
     """
     Encode a single sextet as a character.
@@ -75,39 +151,21 @@ def encoding_for_sextet(bits):
         return '/'
 
 
-def encode_triple_octet(some_bytes):
+# Finally, to convert a bit string to an int, we just need to do some bit
+# twiddling and addition.
+def bits_to_int(bits):
     """
-    Encode up to three octets, accounting for padding.
-    """
-
-    bitstrings = bytes_to_6bits_list(some_bytes)
-
-    if len(some_bytes) == 3:
-        # raise ValueError(bitstrings)
-        return encoding_for_sextet(bitstrings[0]) +\
-            encoding_for_sextet(bitstrings[1]) +\
-            encoding_for_sextet(bitstrings[2]) +\
-            encoding_for_sextet(bitstrings[3])
-
-    elif len(some_bytes) == 2:
-        return encoding_for_sextet(bitstrings[0]) +\
-            encoding_for_sextet(bitstrings[1]) +\
-            encoding_for_sextet(bitstrings[2] + '00') +\
-            '='
-
-    elif len(some_bytes) == 1:
-        return encoding_for_sextet(bitstrings[0]) +\
-            encoding_for_sextet(bitstrings[1] + '0000') +\
-            '=='
-
-
-def hex_to_base64(some_bytes):
-    """
-    Convert hex to base64.
+    Convert a bitstring to an integer.
     """
 
-    return bytes(''.join([encode_triple_octet(some_bytes[i:i + 3])
-                          for i in range(0, len(some_bytes), 3)]), encoding='ascii')
+    return sum([0 if b == '0' else (1 << i) for i, b in enumerate(reversed(bits))])
+
+
+# ##############################################################################
+#
+# Testing
+#
+# ##############################################################################
 
 
 # The Cryptopals site provides us with one test, which we ought to include.

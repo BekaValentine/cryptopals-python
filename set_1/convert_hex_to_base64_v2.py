@@ -13,25 +13,41 @@ import pytest
 import base64
 
 
-def encoding_for_sextet(sextet):
+# ##############################################################################
+#
+# Main Implementation
+#
+# ##############################################################################
+
+# The overall encoding of bytes to base64 in this implementation depends on the
+# following facts:
+#
+# 1. A byte is 8 bits, while each b64 character is 6 bits, so the least common
+#    multiple is 24 bits, or 3 bytes.
+#
+# 2. Every number of bytes can be seen as either a) 3n bytes for some n, b)
+#    3n + 1 bytes for some n, or c) 3n + 2 bytes for some n.
+#
+# We can thus convert the whole bytestring into base 64 by converting each
+# triple octet. If there is a remaining 2 or 1 byte left over, we can then pad.
+
+# Thus, to convert hex to base 64, we simply convert each triple octet in the
+# input bytes:
+def hex_to_base64(some_bytes):
     """
-    Encode a single sextet as a character.
+    Convert hex to base64.
     """
 
-    if sextet in range(0, 26):
-        return chr(ord('A') + sextet)
-    elif sextet in range(26, 52):
-        return chr(ord('a') + (sextet - 26))
-    elif sextet in range(52, 62):
-        return chr(ord('0') + (sextet - 52))
-    elif sextet == 62:
-        return '+'
-    elif sextet == 63:
-        return '/'
-    else:
-        raise ValueError(sextet)
+    return bytes(''.join([encode_triple_octet(some_bytes[i:i + 3])
+                          for i in range(0, len(some_bytes), 3)]), encoding='ascii')
 
 
+# Encoding each triple octet in this version is a little bit nastier to read.
+# We need to do a bunch of bit twiddling to pull out each sextet as a number.
+# It's not too hard tho: We simply shift over the right number of bytes, then
+# bitwise and with a sextet of all '1's. For padding, we shift different amounts
+# and the final sextet is constructed by shifting some 0's in on the right. We
+# of course do all of this after converting our bytes to a single large number.
 def encode_triple_octet(some_bytes):
     """
     Encode up to three octets, accounting for padding.
@@ -65,14 +81,32 @@ def encode_triple_octet(some_bytes):
             '=='
 
 
-def hex_to_base64(some_bytes):
+# Encoding a sextet can be done with no converting to a number now, since we're
+# no longer using an intermediate string encoding in this version.
+def encoding_for_sextet(sextet):
     """
-    Convert hex to base64.
+    Encode a single sextet as a character.
     """
 
-    return bytes(''.join([encode_triple_octet(some_bytes[i:i + 3])
-                          for i in range(0, len(some_bytes), 3)]), encoding='ascii')
+    if sextet in range(0, 26):
+        return chr(ord('A') + sextet)
+    elif sextet in range(26, 52):
+        return chr(ord('a') + (sextet - 26))
+    elif sextet in range(52, 62):
+        return chr(ord('0') + (sextet - 52))
+    elif sextet == 62:
+        return '+'
+    elif sextet == 63:
+        return '/'
+    else:
+        raise ValueError(sextet)
 
+
+# ##############################################################################
+#
+# Testing
+#
+# ##############################################################################
 
 # The Cryptopals site provides us with one test, which we ought to include.
 # First we'll make sure that the builtin `base64` library encodes it correctly:
