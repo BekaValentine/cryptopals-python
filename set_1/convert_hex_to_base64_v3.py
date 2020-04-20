@@ -71,9 +71,8 @@ def encode_doublet(some_byte, another_byte):
         encoding_for_sextet((some_bytes & 0b1111) << 2) + \
         '='
 
+
 # And encoding a triplet is is the first case:
-
-
 def encode_triplet(some_byte, another_byte, yet_another_byte):
     sextet = 0b111111
     some_bytes = 256 * 256 * some_byte + \
