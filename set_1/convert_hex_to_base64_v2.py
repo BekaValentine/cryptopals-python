@@ -135,9 +135,9 @@ def generate_random_hex():
     return bytes.fromhex(chars)
 
 
-# Now we can test 100 random hex strings against the reference implementation:
+# Now we can test 100000 random hex strings against the reference implementation:
 def test_100_random_hex_strings():
-    for _ in range(100):
+    for _ in range(100000):
         a_random_hex_string = generate_random_hex()
         assert base64.encodebytes(a_random_hex_string).strip() == \
             hex_to_base64(a_random_hex_string)
