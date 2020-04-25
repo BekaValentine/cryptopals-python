@@ -5,11 +5,6 @@ Challenge 1: Convert hex to base64
 import math
 import random
 
-# To ensure that the implementation is correct, we should first establish some
-# standard test cases. We'll use `pytest` to perform the tests, and we'll put
-# them directly in line with the code so that the criteria for correctness are
-# clear to anyone reading the implementation.
-import pytest
 import base64
 
 
